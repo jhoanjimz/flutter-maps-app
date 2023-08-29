@@ -6,6 +6,7 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:maps_app/blocs/blocs.dart';
+import 'package:maps_app/models/route_destination.dart';
 import 'package:maps_app/themes/themes.dart';
 
 part 'map_event.dart';
@@ -15,6 +16,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
 
   final LocationBloc locationBloc;
   GoogleMapController? _mapController;
+  LatLng? mapCenter;
 
   StreamSubscription<LocationState>? locationStateSubscription;
 
@@ -22,11 +24,12 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     required this.locationBloc
   }):super(const MapState()) {
 
-    on<OnMapInitializedEvent>(_onInitMap);
+    on<OnMapInitializedEvent>(_onMapInitializedEvent);
     on<OnStartFollowingUserEvent>(_onStartFollowingUserEvent);
     on<OnStopFollowingUserEvent>(_onStopFollowingUserEvent);
     on<UpdateUserPolylinesEvent>(_updateUserPolylinesEvent);
     on<OnToggleUserRoute>(_onToggleUserRoute);
+    on<DisplayPolylinesEvent>(_displayPolylinesEvent);
 
     locationStateSubscription = locationBloc.stream.listen(( locationState ) {
       if( locationState.lastKnowLocation != null ) {
@@ -38,13 +41,11 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     });
     
   }
-
-  void _onInitMap( OnMapInitializedEvent event, Emitter<MapState> emit)  {
+  void _onMapInitializedEvent( OnMapInitializedEvent event, Emitter<MapState> emit)  {
     _mapController = event.controller;
     _mapController?.setMapStyle( jsonEncode(uberMapTheme) );
     emit(state.copyWith(isMapInitialized: true));
   }
-
   void _onStartFollowingUserEvent( OnStartFollowingUserEvent event, Emitter<MapState> emit) {
     emit(state.copyWith(isFollowinUser: true));
     if( locationBloc.state.lastKnowLocation == null ) return;
@@ -71,6 +72,22 @@ class MapBloc extends Bloc<MapEvent, MapState> {
   }
   void _onToggleUserRoute( OnToggleUserRoute event, Emitter<MapState> emit)  {
     emit(state.copyWith(showMyRoute: !state.showMyRoute));
+  }
+  void _displayPolylinesEvent( DisplayPolylinesEvent event, Emitter<MapState> emit)  {
+    emit(state.copyWith(polylines: event.polylines));
+  }
+  Future drawRoutePolilyne( RouteDestination destination ) async {
+    final myRoute = Polyline(
+      polylineId: const PolylineId('route'),
+      color: Colors.black,
+      points: destination.points,
+      startCap: Cap.roundCap,
+      endCap: Cap.roundCap,
+      width: 5
+    );
+    final currentPolylines = Map<String, Polyline>.from(state.polylines);
+    currentPolylines['route'] = myRoute;
+    add(DisplayPolylinesEvent(currentPolylines));
   }
 
   void moveCamera( LatLng newLocation ) {
