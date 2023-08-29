@@ -3,8 +3,9 @@
 import 'package:animate_do/animate_do.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:maps_app/blocs/search/search_bloc.dart';
+import 'package:maps_app/blocs/blocs.dart';
 import 'package:maps_app/delegates/delegates.dart';
+import 'package:maps_app/helpers/helpers.dart';
 import 'package:maps_app/models/models.dart';
 
 class Searchbar extends StatelessWidget {
@@ -28,13 +29,23 @@ class Searchbar extends StatelessWidget {
 class _SearchBarBody extends StatelessWidget {
   const _SearchBarBody();
 
-  void onSearchResult(BuildContext context, SearchResult result) {
+  void onSearchResult(BuildContext context, SearchResult result) async {
     final searchBloc = BlocProvider.of<SearchBloc>(context);
+    final locationBloc = BlocProvider.of<LocationBloc>(context);
+    final mapBloc = BlocProvider.of<MapBloc>(context);
 
     if (result.manual) {
       searchBloc.add(OnActivateManualMarkerEvent());
       return;
     }
+
+    if (result.position != null) {
+      showLoadingMessage(context);
+      final destination = await searchBloc.getCoorsStartToEnd(locationBloc.state.lastKnowLocation!, result.position!);
+      await mapBloc.drawRoutePolilyne(destination);
+      Navigator.pop(context);
+    }
+
   }
 
   @override
@@ -47,7 +58,9 @@ class _SearchBarBody extends StatelessWidget {
         child: GestureDetector(
           onTap: () async {
             final result = await showSearch(
-              context: context, delegate: SearchDestinationDelegate());
+              context: context, 
+              delegate: SearchDestinationDelegate()
+            );
             if (result == null) return;
 
             onSearchResult(context, result);
